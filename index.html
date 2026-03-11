@@ -394,7 +394,7 @@
 <script>
 // ===================== CONFIG =====================
 let WALLET = 'EnB8D6zVaj3QEMiiWXqhvE3hJdCytNVedpxnqjsQSnfN';
-let HELIUS_KEY = ''; // key lives server-side in /api/transactions
+let HELIUS_KEY = '7781ce31-649f-41a7-8562-2dcef3701b46';
 let tracking = false;
 let pollInterval = null;
 let lastSignature = null;
@@ -408,12 +408,8 @@ let bpmInterval = null;
 const WSOL = 'So11111111111111111111111111111111111111112';
 
 // ===================== HELIUS =====================
-function _k() {
-  const p = ['Nzc4MWNlMzEt','NjQ5Zi00MWE3','LTg1NjIt','MmRjZWYzNzAxYjQ2'];
-  return atob(p[0]) + atob(p[1]) + atob(p[2]) + atob(p[3]);
-}
 async function fetchTransactions(wallet, before = null) {
-  let url = `https://api.helius.xyz/v0/addresses/${wallet}/transactions?api-key=${_k()}&limit=25`;
+  let url = `https://api.helius.xyz/v0/addresses/${wallet}/transactions?api-key=${HELIUS_KEY}&limit=25`;
   if (before) url += `&before=${before}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`API error ${res.status}`);
