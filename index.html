@@ -250,22 +250,22 @@
 <header>
   <div class="logo">
     <span class="cat-emoji">😼</span>
-    <span class="logo-text">CAT <span>TRADER</span></span>
+    <span class="logo-text">MISO <span>TRADER</span></span>
   </div>
   <div class="header-right">
     <div class="live-badge"><div class="live-dot"></div>LIVE</div>
-    <a class="solscan-link" id="solscanLink" href="#" target="_blank">View on Solscan ↗</a>
-    <a href="https://x.com/clawnode" target="_blank" style="font-size:13px;color:#b44aff;font-weight:700;text-decoration:none">@clawnode 𝕏</a>
+    <a class="solscan-link" id="solscanLink" href="https://solscan.io/account/EnB8D6zVaj3QEMiiWXqhvE3hJdCytNVedpxnqjsQSnfN" target="_blank">View on Solscan ↗</a>
+    <a href="https://x.com/misodotfun" target="_blank" style="font-size:13px;color:#b44aff;font-weight:700;text-decoration:none">@misodotfun 𝕏</a>
   </div>
 </header>
 
 <!-- WALLET BAR -->
 <div class="wallet-bar">
   <span class="wallet-label">Wallet:</span>
-  <input class="wallet-input" id="walletInput" placeholder="Enter Solana wallet address..." spellcheck="false"/>
+  <input class="wallet-input" id="walletInput" value="EnB8D6zVaj3QEMiiWXqhvE3hJdCytNVedpxnqjsQSnfN" spellcheck="false"/>
   <span class="wallet-label" style="margin-left:8px">Helius Key:</span>
-  <input class="api-input" id="apiKeyInput" placeholder="Helius API key (free at helius.dev)" spellcheck="false"/>
-  <button class="track-btn" id="trackBtn" onclick="startTracking()">🐱 TRACK CAT</button>
+  <input class="api-input" id="apiKeyInput" value="7781ce31-649f-41a7-8562-2dcef3701b46" spellcheck="false"/>
+  <button class="track-btn" id="trackBtn" onclick="startTracking()">😼 TRACK MISO</button>
 </div>
 
 <!-- STATS ROW -->
@@ -291,10 +291,10 @@
     <div id="tradeFeed">
       <div class="empty-state">
         <span class="empty-cat">😼</span>
-        <h3>Cat is waiting to trade...</h3>
-        <p>Enter a Solana wallet address above and your Helius API key.<br/>The cat will track every meme coin buy & sell in real time.</p>
+        <h3>Miso is warming up...</h3>
+        <p>Loading Miso's live meme coin trades from Solana.<br/>Every buy & sell will appear here in real time.</p>
         <br/>
-        <p style="font-size:12px;color:#3a3a5a">Get a free Helius API key at <a href="https://helius.dev" target="_blank" style="color:var(--primary)">helius.dev</a></p>
+        <p style="font-size:12px;color:#3a3a5a">Follow <a href="https://x.com/misodotfun" target="_blank" style="color:var(--primary)">@misodotfun</a> on X</p>
       </div>
     </div>
   </div>
@@ -305,8 +305,9 @@
     <!-- CAT STATUS -->
     <div class="sidebar-section cat-status">
       <span class="cat-big sleeping" id="catEmoji">😴</span>
-      <div class="cat-mood" id="catMood">Cat is sleeping</div>
+      <div class="cat-mood" id="catMood">Miso is sleeping</div>
       <div class="cat-mood-sub" id="catMoodSub">No recent activity</div>
+      <div style="margin-top:8px"><a href="https://x.com/misodotfun" target="_blank" style="font-size:12px;color:var(--primary);font-weight:700;text-decoration:none">@misodotfun 𝕏</a></div>
       <div class="cat-bpm">
         <span class="heart">❤️</span>
         <span class="bpm-num" id="catBpm">—</span>
@@ -355,78 +356,89 @@ let wins = 0;
 let losses = 0;
 let bpmInterval = null;
 
+const WSOL = 'So11111111111111111111111111111111111111112';
+
 // ===================== HELIUS API =====================
 async function fetchTransactions(wallet, before = null) {
-  let url = `https://api.helius.xyz/v0/addresses/${wallet}/transactions?api-key=${HELIUS_KEY}&limit=20&type=SWAP`;
+  let url = `https://api.helius.xyz/v0/addresses/${wallet}/transactions?api-key=${HELIUS_KEY}&limit=25`;
   if (before) url += `&before=${before}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Helius error: ${res.status}`);
+  if (!res.ok) throw new Error(`Helius ${res.status}: check API key`);
   return res.json();
 }
 
 // ===================== DEXSCREENER PRICE =====================
+const priceCache = {};
 async function getTokenPrice(mintAddress) {
+  if (priceCache[mintAddress] && Date.now() - priceCache[mintAddress].ts < 30000) {
+    return priceCache[mintAddress].data;
+  }
   try {
     const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mintAddress}`);
     const data = await res.json();
     if (data.pairs && data.pairs.length > 0) {
       const pair = data.pairs.sort((a,b) => (b.liquidity?.usd||0) - (a.liquidity?.usd||0))[0];
-      return {
+      const result = {
         price: parseFloat(pair.priceUsd || 0),
-        symbol: pair.baseToken?.symbol || '???',
-        name: pair.baseToken?.name || 'Unknown',
+        symbol: pair.baseToken?.symbol || mintAddress.slice(0,6),
+        name: pair.baseToken?.name || 'Unknown Token',
         priceChange24h: pair.priceChange?.h24 || 0,
         liquidity: pair.liquidity?.usd || 0,
         volume24h: pair.volume?.h24 || 0,
+        marketCap: pair.marketCap || 0,
         dexUrl: pair.url || `https://dexscreener.com/solana/${mintAddress}`
       };
+      priceCache[mintAddress] = { data: result, ts: Date.now() };
+      return result;
     }
     return null;
-  } catch(e) {
-    return null;
-  }
+  } catch(e) { return null; }
 }
 
-// ===================== PARSE SWAP =====================
+// ===================== PARSE SWAP (using tokenTransfers + accountData) =====================
 function parseSwap(tx) {
   try {
-    const events = tx.events?.swap;
-    if (!events) return null;
+    // Only process SWAP type transactions
+    if (tx.type !== 'SWAP') return null;
 
-    const nativeInput = events.nativeInput;
-    const nativeOutput = events.nativeOutput;
-    const tokenInputs = events.tokenInputs || [];
-    const tokenOutputs = events.tokenOutputs || [];
+    const transfers = tx.tokenTransfers || [];
+    const accountData = tx.accountData || [];
 
-    let side = null, token = null, amountSol = 0, tokenAmount = 0, tokenMint = null;
+    // Get wallet's SOL balance change
+    const walletData = accountData.find(a => a.account === WALLET);
+    const solChange = walletData ? walletData.nativeBalanceChange / 1e9 : 0;
 
-    // BUY: SOL in, token out
-    if (nativeInput && tokenOutputs.length > 0) {
+    // Tokens received by wallet (not WSOL)
+    const tokensIn = transfers.filter(t =>
+      t.toUserAccount === WALLET && t.mint !== WSOL && t.tokenAmount > 0
+    );
+
+    // Tokens sent from wallet (not WSOL)
+    const tokensOut = transfers.filter(t =>
+      t.fromUserAccount === WALLET && t.mint !== WSOL && t.tokenAmount > 0
+    );
+
+    let side, tokenMint, tokenAmount, amountSol;
+
+    if (tokensIn.length > 0) {
+      // BUY — wallet received token
       side = 'buy';
-      amountSol = nativeInput.amount / 1e9;
-      const tok = tokenOutputs[0];
+      const tok = tokensIn[0];
       tokenMint = tok.mint;
-      tokenAmount = tok.amount / Math.pow(10, tok.decimals || 6);
-    }
-    // SELL: token in, SOL out
-    else if (nativeOutput && tokenInputs.length > 0) {
+      tokenAmount = tok.tokenAmount;
+      amountSol = solChange < 0 ? Math.abs(solChange) : 0;
+    } else if (tokensOut.length > 0 && solChange > 0) {
+      // SELL — wallet sent token, received SOL
       side = 'sell';
-      amountSol = nativeOutput.amount / 1e9;
-      const tok = tokenInputs[0];
+      const tok = tokensOut[0];
       tokenMint = tok.mint;
-      tokenAmount = tok.amount / Math.pow(10, tok.decimals || 6);
-    }
-    // Token to Token
-    else if (tokenInputs.length > 0 && tokenOutputs.length > 0) {
-      side = 'buy';
-      const tokIn = tokenInputs[0];
-      const tokOut = tokenOutputs[0];
-      tokenMint = tokOut.mint;
-      tokenAmount = tokOut.amount / Math.pow(10, tokOut.decimals || 6);
-      amountSol = 0;
+      tokenAmount = tok.tokenAmount;
+      amountSol = solChange;
+    } else {
+      return null;
     }
 
-    if (!side || !tokenMint) return null;
+    if (!tokenMint || tokenAmount <= 0) return null;
 
     return {
       signature: tx.signature,
@@ -438,6 +450,7 @@ function parseSwap(tx) {
       entryPrice: amountSol > 0 && tokenAmount > 0 ? amountSol / tokenAmount : 0,
     };
   } catch(e) {
+    console.warn('Parse error:', e);
     return null;
   }
 }
@@ -524,8 +537,10 @@ async function poll() {
       return;
     }
 
+    // Find only txs newer than what we've seen
+    const knownSigs = new Set(trades.map(t => t.signature));
     const newTxs = lastSignature
-      ? txs.filter(tx => tx.signature !== lastSignature)
+      ? txs.filter(tx => !knownSigs.has(tx.signature))
       : txs;
 
     if (newTxs.length > 0) {
@@ -609,14 +624,14 @@ function updateCatMood() {
 
   if (age < 60000) {
     cat.textContent = '😼'; cat.className = 'cat-big trading';
-    mood.textContent = recentTrade.side === 'buy' ? '🟢 Cat is BUYING' : '🔴 Cat is SELLING';
+    mood.textContent = recentTrade.side === 'buy' ? '🟢 Miso is BUYING' : '🔴 Miso is SELLING';
     sub.textContent = 'Actively trading';
   } else if (age < 300000) {
     cat.textContent = '😺'; cat.className = 'cat-big';
-    mood.textContent = 'Cat is alert'; sub.textContent = 'Recent activity';
+    mood.textContent = 'Miso is alert'; sub.textContent = 'Recent activity';
   } else {
     cat.textContent = '😴'; cat.className = 'cat-big sleeping';
-    mood.textContent = 'Cat is sleeping'; sub.textContent = 'No recent activity';
+    mood.textContent = 'Miso is sleeping'; sub.textContent = 'No recent activity';
   }
 }
 
@@ -673,7 +688,7 @@ async function startTracking() {
 
   tracking = true;
   await poll();
-  pollInterval = setInterval(poll, 15000); // refresh every 15s
+  pollInterval = setInterval(poll, 8000); // refresh every 8s
   startBpm();
 
   btn.textContent = '✅ TRACKING';
@@ -708,9 +723,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (params.get('key')) {
     document.getElementById('apiKeyInput').value = params.get('key');
   }
-  if (params.get('wallet') && params.get('key')) {
-    startTracking();
-  }
+  // Auto-start with Miso's wallet
+  startTracking();
 });
 </script>
 </body>
