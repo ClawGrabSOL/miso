@@ -759,17 +759,6 @@ function formatNum(n) {
 // Allow Enter key on inputs
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('walletInput').addEventListener('keydown', e => { if(e.key==='Enter') startTracking(); });
-  document.getElementById('apiKeyInput').addEventListener('keydown', e => { if(e.key==='Enter') startTracking(); });
-
-  // Load from URL params if present
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('wallet')) {
-    document.getElementById('walletInput').value = params.get('wallet');
-  }
-  if (params.get('key')) {
-    document.getElementById('apiKeyInput').value = params.get('key');
-  }
-  // Auto-start with Miso's wallet
   startTracking();
 });
 </script>
