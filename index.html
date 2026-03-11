@@ -714,7 +714,6 @@ function startBpm() {
 // ===================== START =====================
 async function startTracking() {
   WALLET = document.getElementById('walletInput').value.trim();
-  HELIUS_KEY = document.getElementById('apiKeyInput').value.trim();
 
   if (!WALLET || WALLET.length < 32) { alert('Invalid wallet address'); return; }
 
