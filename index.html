@@ -313,9 +313,7 @@
 <!-- WALLET BAR -->
 <div class="wallet-bar">
   <span class="wallet-label">Wallet:</span>
-  <input class="wallet-input" id="walletInput" value="EnB8D6zVaj3QEMiiWXqhvE3hJdCytNVedpxnqjsQSnfN" spellcheck="false"/>
-  <span class="wallet-label" style="margin-left:8px">Helius Key:</span>
-  <input class="api-input" id="apiKeyInput" value="7781ce31-649f-41a7-8562-2dcef3701b46" spellcheck="false"/>
+  <input class="wallet-input" id="walletInput" value="EnB8D6zVaj3QEMiiWXqhvE3hJdCytNVedpxnqjsQSnfN" spellcheck="false" style="opacity:0.6;pointer-events:none"/>
   <button class="track-btn" id="trackBtn" onclick="startTracking()">😼 TRACK MISO</button>
 </div>
 
@@ -395,8 +393,8 @@
 
 <script>
 // ===================== CONFIG =====================
-let WALLET = '';
-let HELIUS_KEY = '';
+let WALLET = 'EnB8D6zVaj3QEMiiWXqhvE3hJdCytNVedpxnqjsQSnfN';
+let HELIUS_KEY = ''; // key lives server-side in /api/transactions
 let tracking = false;
 let pollInterval = null;
 let lastSignature = null;
@@ -409,12 +407,12 @@ let bpmInterval = null;
 
 const WSOL = 'So11111111111111111111111111111111111111112';
 
-// ===================== HELIUS API =====================
+// ===================== API PROXY (key hidden server-side) =====================
 async function fetchTransactions(wallet, before = null) {
-  let url = `https://api.helius.xyz/v0/addresses/${wallet}/transactions?api-key=${HELIUS_KEY}&limit=25`;
+  let url = `/api/transactions?wallet=${wallet}`;
   if (before) url += `&before=${before}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Helius ${res.status}: check API key`);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
@@ -718,9 +716,7 @@ async function startTracking() {
   WALLET = document.getElementById('walletInput').value.trim();
   HELIUS_KEY = document.getElementById('apiKeyInput').value.trim();
 
-  if (!WALLET) { alert('Enter a wallet address'); return; }
-  if (!HELIUS_KEY) { alert('Enter your Helius API key — get one free at helius.dev'); return; }
-  if (WALLET.length < 32) { alert('Invalid Solana wallet address'); return; }
+  if (!WALLET || WALLET.length < 32) { alert('Invalid wallet address'); return; }
 
   const btn = document.getElementById('trackBtn');
   btn.textContent = '⏳ TRACKING...';
